@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LucaSTATS — Analyse de Données de Santé Mondiale</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c26;
+      --surface2: #1e2334;
+      --border: #2a3045;
+      --accent: #4f8ef7;
+      --accent2: #f7a24f;
+      --accent3: #4ff7a2;
+      --danger: #f74f6a;
+      --text: #e8ecf4;
+      --muted: #6b7592;
+      --card-glow: 0 0 30px rgba(79,142,247,0.07);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* GRID BACKGROUND */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* HEADER */
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 48px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15,17,23,0.92);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo span {
+      -webkit-text-fill-color: var(--accent2);
+    }
+
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* SIGNATURE BANNER */
+    .signature-banner {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(90deg, var(--surface), var(--surface2), var(--surface));
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 2.5px;
+      color: var(--accent2);
+      text-transform: uppercase;
+    }
+
+    /* MAIN */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .page-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 4px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+
+    /* FORM CARD */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 40px;
+      box-shadow: var(--card-glow);
+      margin-bottom: 36px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 20px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    }
+
+    select option { background: var(--surface2); }
+
+    .btn-analyze {
+      background: linear-gradient(135deg, var(--accent), #3a6fd8);
+      border: none;
+      border-radius: 8px;
+      padding: 12px 28px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-analyze:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(79,142,247,0.3);
+    }
+
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* LOADING */
+    .loading-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3), var(--accent2));
+      background-size: 200% 100%;
+      animation: slide 1.2s linear infinite;
+      border-radius: 2px;
+      margin-bottom: 32px;
+      display: none;
+    }
+
+    @keyframes slide {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* RESULTS AREA */
+    #results { display: none; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .results-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+      color: var(--text);
+    }
+
+    .tag {
+      background: rgba(79,142,247,0.12);
+      border: 1px solid rgba(79,142,247,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* STAT CARDS */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      box-shadow: var(--card-glow);
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+
+    .stat-card.blue::before { background: var(--accent); }
+    .stat-card.orange::before { background: var(--accent2); }
+    .stat-card.green::before { background: var(--accent3); }
+
+    .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.4rem;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+
+    .stat-card.blue .stat-value { color: var(--accent); }
+    .stat-card.orange .stat-value { color: var(--accent2); }
+    .stat-card.green .stat-value { color: var(--accent3); }
+
+    .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+    /* CHARTS GRID */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: var(--card-glow);
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .chart-card-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    canvas { max-width: 100%; }
+
+    /* BILAN CARD */
+    .bilan-card {
+      background: var(--surface);
+      border: 1px solid rgba(247,162,79,0.25);
+      border-radius: 14px;
+      padding: 32px 36px;
+      box-shadow: 0 0 40px rgba(247,162,79,0.06);
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .bilan-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .bilan-icon {
+      width: 40px; height: 40px;
+      background: rgba(247,162,79,0.12);
+      border: 1px solid rgba(247,162,79,0.3);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .bilan-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      color: var(--accent2);
+    }
+
+    .bilan-content {
+      font-size: 0.95rem;
+      line-height: 1.8;
+      color: #b8c0d4;
+    }
+
+    .bilan-content strong { color: var(--text); }
+
+    .highlight-tranche {
+      display: inline-block;
+      background: rgba(247,162,79,0.1);
+      border: 1px solid rgba(247,162,79,0.25);
+      border-radius: 6px;
+      padding: 2px 10px;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    /* ERROR */
+    .error-box {
+      background: rgba(247,79,106,0.08);
+      border: 1px solid rgba(247,79,106,0.25);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: var(--danger);
+      font-size: 0.9rem;
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    /* FOOTER */
+    footer {
+      position: relative;
+      z-index: 10;
+      border-top: 1px solid var(--border);
+      padding: 20px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .footer-sig {
+      color: var(--accent2);
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 14px 20px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      main { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Luca<span>STATS</span></div>
+  <div class="badge">ANALYSE · SANTÉ · MONDIALE</div>
+</header>
+
+<div class="signature-banner">
+  ✦ &nbsp; DZIGUEM LUCAS PHILIPPE &nbsp;—&nbsp; 24G2737 &nbsp; ✦
+</div>
+
+<main>
+  <div class="page-title">// Tableau de bord — Données de Santé par Pays</div>
+
+  <div class="form-card">
+    <div class="form-grid">
+      <div>
+        <label for="country">Pays</label>
+        <input type="text" id="country" placeholder="Ex : France, Cameroun, USA…" autocomplete="off"/>
+      </div>
+      <div>
+        <label for="param">Paramètre d'analyse</label>
+        <select id="param">
+          <option value="">— Sélectionner —</option>
+          <option value="alcoolisme">🍶 Alcoolisme</option>
+          <option value="toxicomanie">💊 Toxicomanie</option>
+          <option value="dépression">🧠 Dépression</option>
+        </select>
+      </div>
+      <div>
+        <button class="btn-analyze" id="btnAnalyze" onclick="launchAnalysis()">
+          ▶ Analyser
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-bar" id="loader"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div id="results">
+    <div class="results-header">
+      <div class="results-title" id="resultsTitle">Résultats</div>
+      <span class="tag" id="countryTag"></span>
+      <span class="tag" id="paramTag"></span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card blue">
+        <div class="stat-label">Tranche la + touchée</div>
+        <div class="stat-value" id="statAge">—</div>
+        <div class="stat-sub">ans</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Taux maximum</div>
+        <div class="stat-value" id="statMax">—</div>
+        <div class="stat-sub">% de la population</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Taux minimum</div>
+        <div class="stat-value" id="statMin">—</div>
+        <div class="stat-sub">% de la population</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">// Taux par tranche d'âge — Barres</div>
+        <canvas id="barChart" height="260"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">// Répartition — Camembert</div>
+        <canvas id="pieChart" height="260"></canvas>
+      </div>
+    </div>
+
+    <div class="bilan-card">
+      <div class="bilan-header">
+        <div class="bilan-icon">📊</div>
+        <div class="bilan-title">Bilan Analytique — Tranche la plus touchée</div>
+      </div>
+      <div class="bilan-content" id="bilanContent">Chargement…</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div>© 2025 LucaSTATS — Analyse de Données de Santé</div>
+  <div class="footer-sig">DZIGUEM LUCAS PHILIPPE — 24G2737</div>
+</footer>
+
+<script>
+let barChartInstance = null;
+let pieChartInstance = null;
+
+async function launchAnalysis() {
+  const country = document.getElementById('country').value.trim();
+  const param = document.getElementById('param').value;
+
+  if (!country || !param) {
+    showError("Veuillez renseigner un pays et un paramètre.");
+    return;
+  }
+
+  hideError();
+  showLoader(true);
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('btnAnalyze').disabled = true;
+
+  try {
+    const prompt = `Tu es un expert en statistiques de santé publique mondiale. 
+Pour le pays "${country}" et le paramètre "${param}", génère des données RÉALISTES et PLAUSIBLES (basées sur les tendances mondiales connues) sur les taux d'affection par tranche d'âge.
+
+Réponds UNIQUEMENT en JSON valide, sans aucun texte avant ou après, sans backticks markdown, avec ce format exact :
+{
+  "tranches": ["15-24 ans", "25-34 ans", "35-44 ans", "45-54 ans", "55-64 ans", "65+ ans"],
+  "taux": [nombre, nombre, nombre, nombre, nombre, nombre],
+  "tranche_max": "15-24 ans",
+  "taux_max": nombre,
+  "taux_min": nombre,
+  "bilan": "Texte détaillé HTML de 4-6 phrases sur la tranche la plus touchée : contexte socio-économique, facteurs de risque, comparaison régionale, recommandations. Utilise <strong> pour les mots importants et <span class='highlight-tranche'> pour la tranche d'âge."
+}
+
+Les taux doivent être en pourcentage (0-100), réalistes pour ${country}. Pour la dépression mondiale, les taux sont généralement entre 3% et 25% selon les tranches. Pour l'alcoolisme, entre 1% et 20%. Pour la toxicomanie, entre 0.5% et 10%.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content.map(i => i.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    renderResults(parsed, country, param);
+
+  } catch (err) {
+    showError("Erreur lors de l'analyse. Vérifiez votre connexion et réessayez. (" + err.message + ")");
+  } finally {
+    showLoader(false);
+    document.getElementById('btnAnalyze').disabled = false;
+  }
+}
+
+function renderResults(data, country, param) {
+  // Tags
+  document.getElementById('countryTag').textContent = country.toUpperCase();
+  document.getElementById('paramTag').textContent = param.charAt(0).toUpperCase() + param.slice(1);
+  document.getElementById('resultsTitle').textContent = `Analyse — ${country}`;
+
+  // Stats
+  document.getElementById('statAge').textContent = data.tranche_max;
+  document.getElementById('statMax').textContent = data.taux_max + '%';
+  document.getElementById('statMin').textContent = data.taux_min + '%';
+
+  // Bilan
+  document.getElementById('bilanContent').innerHTML = data.bilan;
+
+  // Colors
+  const colors = data.tranches.map((_, i) => {
+    if (data.tranches[i] === data.tranche_max) return 'rgba(247,162,79,0.85)';
+    return 'rgba(79,142,247,0.65)';
+  });
+
+  // Bar Chart
+  if (barChartInstance) barChartInstance.destroy();
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChartInstance = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: data.tranches,
+      datasets: [{
+        label: 'Taux (%)',
+        data: data.taux,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace('0.65', '1').replace('0.85', '1')),
+        borderWidth: 1.5,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2334',
+          titleColor: '#e8ecf4',
+          bodyColor: '#6b7592',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.parsed.y}%` }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#6b7592', font: { family: 'Space Mono', size: 10 } },
+          grid: { color: 'rgba(42,48,69,0.5)' }
+        },
+        y: {
+          ticks: { color: '#6b7592', font: { family: 'Space Mono', size: 10 }, callback: v => v + '%' },
+          grid: { color: 'rgba(42,48,69,0.5)' }
+        }
+      }
+    }
+  });
+
+  // Pie Chart
+  if (pieChartInstance) pieChartInstance.destroy();
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  const pieColors = [
+    'rgba(79,142,247,0.8)', 'rgba(247,162,79,0.8)', 'rgba(79,247,162,0.8)',
+    'rgba(247,79,106,0.8)', 'rgba(162,79,247,0.8)', 'rgba(247,247,79,0.8)'
+  ];
+  pieChartInstance = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: data.tranches,
+      datasets: [{
+        data: data.taux,
+        backgroundColor: pieColors,
+        borderColor: '#0f1117',
+        borderWidth: 3,
+        hoverOffset: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#6b7592', font: { family: 'Space Mono', size: 9 }, boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          backgroundColor: '#1e2334',
+          titleColor: '#e8ecf4',
+          bodyColor: '#6b7592',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` }
+        }
+      },
+      cutout: '55%'
+    }
+  });
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showLoader(state) {
+  document.getElementById('loader').style.display = state ? 'block' : 'none';
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+document.getElementById('country').addEventListener('keydown', e => {
+  if (e.key === 'Enter') launchAnalysis();
+});
+</script>
+</body>
+</html>
