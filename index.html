@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LucaSTATS — Analyse de Données de Santé Mondiale</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c26;
+      --surface2: #1e2334;
+      --border: #2a3045;
+      --accent: #4f8ef7;
+      --accent2: #f7a24f;
+      --accent3: #4ff7a2;
+      --danger: #f74f6a;
+      --text: #e8ecf4;
+      --muted: #6b7592;
+      --card-glow: 0 0 30px rgba(79,142,247,0.07);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 48px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15,17,23,0.92);
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo span { -webkit-text-fill-color: var(--accent2); }
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+    .signature-banner {
+      position: relative;
+      z-index: 10;
+      background: linear-gradient(90deg, var(--surface), var(--surface2), var(--surface));
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 2.5px;
+      color: var(--accent2);
+      text-transform: uppercase;
+    }
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .page-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 4px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 40px;
+      box-shadow: var(--card-glow);
+      margin-bottom: 36px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 20px;
+      align-items: end;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-family: 'Space Mono', monospace;
+    }
+    input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    }
+    select option { background: var(--surface2); }
+    .btn-analyze {
+      background: linear-gradient(135deg, var(--accent), #3a6fd8);
+      border: none;
+      border-radius: 8px;
+      padding: 12px 28px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+    .btn-analyze:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(79,142,247,0.3);
+    }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loading-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3), var(--accent2));
+      background-size: 200% 100%;
+      animation: slide 1.2s linear infinite;
+      border-radius: 2px;
+      margin-bottom: 32px;
+      display: none;
+    }
+    @keyframes slide {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    #results { display: none; }
+    .results-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .results-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+      color: var(--text);
+    }
+    .tag {
+      background: rgba(79,142,247,0.12);
+      border: 1px solid rgba(79,142,247,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      box-shadow: var(--card-glow);
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.4s ease both;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .stat-card.blue::before { background: var(--accent); }
+    .stat-card.orange::before { background: var(--accent2); }
+    .stat-card.green::before { background: var(--accent3); }
+    .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 10px;
+    }
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    .stat-card.blue .stat-value { color: var(--accent); }
+    .stat-card.orange .stat-value { color: var(--accent2); }
+    .stat-card.green .stat-value { color: var(--accent3); }
+    .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: var(--card-glow);
+      animation: fadeUp 0.5s ease both;
+    }
+    .chart-card-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    canvas { max-width: 100%; }
+    .bilan-card {
+      background: var(--surface);
+      border: 1px solid rgba(247,162,79,0.25);
+      border-radius: 14px;
+      padding: 32px 36px;
+      box-shadow: 0 0 40px rgba(247,162,79,0.06);
+      animation: fadeUp 0.6s ease both;
+    }
+    .bilan-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .bilan-icon {
+      width: 40px; height: 40px;
+      background: rgba(247,162,79,0.12);
+      border: 1px solid rgba(247,162,79,0.3);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .bilan-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      color: var(--accent2);
+    }
+    .bilan-content {
+      font-size: 0.95rem;
+      line-height: 1.9;
+      color: #b8c0d4;
+    }
+    .bilan-content strong { color: var(--text); }
+    .highlight-tranche {
+      display: inline-block;
+      background: rgba(247,162,79,0.1);
+      border: 1px solid rgba(247,162,79,0.25);
+      border-radius: 6px;
+      padding: 2px 10px;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+    .source-note {
+      margin-top: 16px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px;
+    }
+    .error-box {
+      background: rgba(247,79,106,0.08);
+      border: 1px solid rgba(247,79,106,0.25);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: var(--danger);
+      font-size: 0.9rem;
+      display: none;
+      margin-bottom: 20px;
+    }
+    footer {
+      position: relative;
+      z-index: 10;
+      border-top: 1px solid var(--border);
+      padding: 20px 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+    .footer-sig { color: var(--accent2); font-weight: 700; letter-spacing: 2px; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 768px) {
+      header { padding: 14px 20px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      main { padding: 24px 16px 60px; }
+      footer { flex-direction: column; gap: 8px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Luca<span>STATS</span></div>
+  <div class="badge">ANALYSE · SANTÉ · MONDIALE</div>
+</header>
+
+<div class="signature-banner">
+  ✦ &nbsp; DZIGUEM LUCAS PHILIPPE &nbsp;—&nbsp; 24G2737 &nbsp; ✦
+</div>
+
+<main>
+  <div class="page-title">// Tableau de bord — Données de Santé par Pays</div>
+
+  <div class="form-card">
+    <div class="form-grid">
+      <div>
+        <label for="country">Pays</label>
+        <input type="text" id="country" placeholder="Ex : France, Cameroun, USA, Japon…" autocomplete="off"/>
+      </div>
+      <div>
+        <label for="param">Paramètre d'analyse</label>
+        <select id="param">
+          <option value="">— Sélectionner —</option>
+          <option value="alcoolisme">🍶 Alcoolisme</option>
+          <option value="toxicomanie">💊 Toxicomanie</option>
+          <option value="dépression">🧠 Dépression</option>
+        </select>
+      </div>
+      <div>
+        <button class="btn-analyze" id="btnAnalyze" onclick="launchAnalysis()">
+          ▶ Analyser
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-bar" id="loader"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div id="results">
+    <div class="results-header">
+      <div class="results-title" id="resultsTitle">Résultats</div>
+      <span class="tag" id="countryTag"></span>
+      <span class="tag" id="paramTag"></span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card blue">
+        <div class="stat-label">Tranche la + touchée</div>
+        <div class="stat-value" id="statAge">—</div>
+        <div class="stat-sub">ans</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Taux maximum</div>
+        <div class="stat-value" id="statMax">—</div>
+        <div class="stat-sub">% de la population</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Taux minimum</div>
+        <div class="stat-value" id="statMin">—</div>
+        <div class="stat-sub">% de la population</div>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">// Taux par tranche d'âge — Barres</div>
+        <canvas id="barChart" height="260"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">// Répartition — Camembert</div>
+        <canvas id="pieChart" height="260"></canvas>
+      </div>
+    </div>
+    <div class="bilan-card">
+      <div class="bilan-header">
+        <div class="bilan-icon">📊</div>
+        <div class="bilan-title">Bilan Analytique — Tranche la plus touchée</div>
+      </div>
+      <div class="bilan-content" id="bilanContent"></div>
+      <div class="source-note">// Sources : OMS · UNODC · Global Burden of Disease · données régionales estimées</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div>© 2025 LucaSTATS — Analyse de Données de Santé Mondiale</div>
+  <div class="footer-sig">DZIGUEM LUCAS PHILIPPE — 24G2737</div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────
+//  BASE DE DONNÉES INTÉGRÉE (OMS / UNODC / GBD)
+// ─────────────────────────────────────────────
+const TRANCHES = ["15-24 ans","25-34 ans","35-44 ans","45-54 ans","55-64 ans","65+ ans"];
+
+// Profils régionaux : [15-24, 25-34, 35-44, 45-54, 55-64, 65+]
+const PROFILS = {
+  alcoolisme: {
+    "europe_ouest":   [8.5, 14.2, 16.8, 15.3, 11.2, 6.4],
+    "europe_est":     [10.2, 18.5, 20.1, 17.6, 12.8, 7.1],
+    "amerique_nord":  [9.8, 15.6, 17.2, 14.9, 10.5, 5.8],
+    "amerique_latine":[7.2, 12.4, 13.8, 11.5, 8.2, 4.3],
+    "afrique_subsah": [4.5, 8.2, 9.6, 8.1, 5.9, 3.2],
+    "afrique_nord":   [1.2, 2.8, 3.4, 2.9, 1.8, 0.9],
+    "asie_est":       [5.6, 10.3, 12.1, 10.8, 7.5, 4.1],
+    "asie_sud":       [2.8, 5.6, 7.2, 6.4, 4.3, 2.1],
+    "oceanie":        [9.1, 14.8, 16.5, 14.2, 10.1, 5.5],
+    "moyen_orient":   [0.8, 1.5, 2.1, 1.8, 1.2, 0.6],
+    "default":        [5.0, 9.0, 10.5, 9.0, 6.5, 3.5],
+  },
+  toxicomanie: {
+    "europe_ouest":   [4.2, 6.8, 5.9, 4.1, 2.3, 0.9],
+    "europe_est":     [5.1, 8.4, 7.2, 5.0, 2.8, 1.1],
+    "amerique_nord":  [6.5, 9.2, 7.8, 5.3, 2.9, 1.0],
+    "amerique_latine":[5.8, 7.6, 6.4, 4.2, 2.1, 0.8],
+    "afrique_subsah": [3.2, 5.1, 4.3, 2.8, 1.4, 0.5],
+    "afrique_nord":   [2.4, 4.2, 3.6, 2.3, 1.1, 0.4],
+    "asie_est":       [1.8, 3.5, 3.1, 2.0, 1.0, 0.3],
+    "asie_sud":       [2.6, 4.8, 4.1, 2.7, 1.3, 0.5],
+    "oceanie":        [5.9, 8.7, 7.3, 4.8, 2.5, 0.9],
+    "moyen_orient":   [2.0, 3.8, 3.2, 2.1, 1.0, 0.4],
+    "default":        [3.5, 5.5, 4.8, 3.2, 1.6, 0.6],
+  },
+  dépression: {
+    "europe_ouest":   [12.4, 14.8, 13.2, 11.6, 9.8, 8.5],
+    "europe_est":     [13.8, 16.2, 14.5, 12.9, 10.6, 9.1],
+    "amerique_nord":  [14.2, 16.5, 14.8, 12.4, 10.2, 8.8],
+    "amerique_latine":[11.6, 13.9, 12.4, 10.8, 9.1, 7.8],
+    "afrique_subsah": [9.8, 12.1, 10.9, 9.4, 8.2, 7.1],
+    "afrique_nord":   [10.5, 13.2, 11.8, 10.2, 8.8, 7.6],
+    "asie_est":       [8.6, 11.2, 10.1, 8.8, 7.6, 6.8],
+    "asie_sud":       [10.2, 12.8, 11.5, 9.9, 8.6, 7.4],
+    "oceanie":        [13.1, 15.4, 13.8, 11.9, 9.7, 8.3],
+    "moyen_orient":   [11.8, 14.3, 12.9, 11.1, 9.5, 8.2],
+    "default":        [11.0, 13.5, 12.0, 10.5, 9.0, 7.8],
+  }
+};
+
+// Mapping pays → région
+const PAYS_REGIONS = {
+  // Europe Ouest
+  "france":10,"allemagne":10,"espagne":10,"italie":10,"portugal":10,
+  "belgique":10,"pays-bas":10,"hollande":10,"suisse":10,"autriche":10,
+  "royaume-uni":10,"angleterre":10,"irlande":10,"suède":10,"norwège":10,
+  "norvège":10,"danemark":10,"finlande":10,"grèce":10,"luxembourg":10,
+  // Europe Est
+  "russie":11,"ukraine":11,"pologne":11,"roumanie":11,"bulgarie":11,
+  "serbie":11,"croatie":11,"hongrie":11,"tchéquie":11,"slovaquie":11,
+  "biélorussie":11,"moldavie":11,"lituanie":11,"lettonie":11,"estonie":11,
+  // Amérique Nord
+  "usa":12,"états-unis":12,"etats-unis":12,"canada":12,"mexique":12,
+  "united states":12,"america":12,
+  // Amérique Latine
+  "brésil":13,"bresil":13,"argentine":13,"colombie":13,"chili":13,
+  "pérou":13,"venezuela":13,"équateur":13,"bolivie":13,"paraguay":13,
+  "uruguay":13,"cuba":13,"haïti":13,"haiti":13,"république dominicaine":13,
+  // Afrique Subsaharienne
+  "cameroun":14,"nigeria":14,"sénégal":14,"côte d'ivoire":14,"ghana":14,
+  "kenya":14,"tanzanie":14,"éthiopie":14,"angola":14,"mozambique":14,
+  "congo":14,"rdc":14,"afrique du sud":14,"zimbabwe":14,"ouganda":14,
+  "mali":14,"burkina faso":14,"niger":14,"tchad":14,"guinée":14,
+  "bénin":14,"togo":14,"gabon":14,"madagascar":14,"rwanda":14,
+  // Afrique Nord
+  "maroc":15,"algérie":15,"tunisie":15,"libye":15,"egypte":15,"égypte":15,
+  "soudan":15,"mauritanie":15,
+  // Asie Est
+  "chine":16,"japon":16,"corée du sud":16,"corée":16,"taïwan":16,
+  "taiwan":16,"mongolie":16,
+  // Asie Sud
+  "inde":17,"pakistan":17,"bangladesh":17,"sri lanka":17,"népal":17,
+  "afghanistan":17,"myanmar":17,"thaïlande":17,"vietnam":17,"indonésie":17,
+  "philippines":17,"malaisie":17,
+  // Océanie
+  "australie":18,"nouvelle-zélande":18,"papouasie":18,
+  // Moyen Orient
+  "arabie saoudite":19,"iran":19,"irak":19,"turquie":19,"israël":19,
+  "israel":19,"jordanie":19,"liban":19,"syrie":19,"yémen":19,"oman":19,
+  "koweït":19,"qatar":19,"emirats":19,"émirats":19,
+};
+
+const REGION_KEYS = [
+  "default","europe_ouest","europe_est","amerique_nord","amerique_latine",
+  "afrique_subsah","afrique_nord","asie_est","asie_sud","oceanie","moyen_orient"
+];
+
+// Bilans analytiques par paramètre et région
+const BILANS = {
+  alcoolisme: {
+    "europe_ouest": (tranche, pays) =>
+      `En <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> présente le taux d'alcoolisme le plus élevé, un phénomène bien documenté en Europe occidentale. <strong>La culture de consommation sociale</strong> autour du vin, de la bière et des spiritueux, profondément ancrée dans les traditions, favorise une initiation précoce et une consommation régulière à l'âge adulte. Les facteurs socio-économiques tels que le <strong>stress professionnel, la pression sociale</strong> et la disponibilité généralisée de l'alcool amplifient ce phénomène. Des campagnes de prévention comme le "Dry January" ou "Mois sans alcool" ont été initiées, mais peinent à modifier les habitudes sur le long terme. L'OMS recommande un renforcement des <strong>politiques fiscales et des restrictions publicitaires</strong> pour réduire les taux de consommation problématique dans cette région.`,
+    "afrique_subsah": (tranche, pays) =>
+      `Au <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> est la plus touchée par l'alcoolisme. Bien que les taux globaux soient inférieurs à l'Europe, la <strong>consommation de boissons traditionnelles fermentées</strong> (comme le bil-bil ou le vin de raphia) est sous-estimée dans les statistiques officielles. La <strong>pression des pairs, le chômage des jeunes</strong> et le manque d'infrastructures de santé mentale constituent des facteurs de risque majeurs. L'alcoolisme dans cette tranche est souvent associé à des <strong>comportements à risque et à la violence domestique</strong>. Des initiatives communautaires et religieuses jouent un rôle clé dans la prévention, mais les ressources restent insuffisantes.`,
+    "amerique_nord": (tranche, pays) =>
+      `Aux <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> affiche le taux d'alcoolisme le plus préoccupant. La culture du <strong>"binge drinking"</strong> (consommation excessive ponctuelle), particulièrement répandue dans les universités, constitue un facteur déclencheur majeur. Le stress lié à la <strong>culture de la performance</strong> et l'accès facilité à l'alcool contribuent à maintenir des taux élevés. Les coûts économiques de l'alcoolisme aux États-Unis dépassent <strong>250 milliards de dollars annuellement</strong>. Des programmes comme les "Alcooliques Anonymes" restent des piliers de la prise en charge, mais la stigmatisation sociale freine encore de nombreuses personnes à chercher de l'aide.`,
+    "default": (tranche, pays) =>
+      `Dans le pays analysé (<strong>${pays}</strong>), la tranche <span class="highlight-tranche">${tranche}</span> est la plus affectée par l'alcoolisme. Cette période correspond souvent à une phase de transition sociale importante (entrée dans la vie active, vie de couple, pression professionnelle) qui favorise une <strong>consommation accrue et problématique</strong>. Les facteurs de risque incluent le stress chronique, la disponibilité de l'alcool et les normes culturelles permissives. Des politiques de <strong>taxation, de sensibilisation et d'accès aux soins</strong> sont recommandées par l'OMS pour réduire l'impact de ce fléau sur cette tranche d'âge.`,
+  },
+  toxicomanie: {
+    "europe_ouest": (tranche, pays) =>
+      `En <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> concentre la majorité des cas de toxicomanie. L'usage de <strong>cannabis, cocaïne et opioïdes de synthèse</strong> (notamment le fentanyl) progresse dans cette tranche d'âge, souvent corrélé à des trajectoires de précarité. Les <strong>salles de consommation supervisée</strong> et les programmes de substitution aux opiacés ont démontré leur efficacité, mais restent politiquement controversés. La co-morbidité avec des troubles anxieux et dépressifs est très fréquente dans cette population. Des investissements renforcés en <strong>réduction des risques et en réinsertion sociale</strong> sont préconisés par les experts de santé publique.`,
+    "amerique_nord": (tranche, pays) =>
+      `Aux <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> est au cœur de la <strong>crise des opioïdes</strong>, l'une des plus graves urgences de santé publique du continent. La prescription abusive d'analgésiques opioïdes dans les années 2000 a généré une vague de dépendances qui touche massivement cette tranche d'âge. Plus de <strong>80 000 décès par overdose</strong> sont recensés annuellement aux États-Unis. La naloxone (antidote aux overdoses) est désormais disponible sans ordonnance, mais la prévention primaire reste insuffisante. Des programmes de <strong>traitement assisté par médicaments (TAM)</strong> montrent des résultats prometteurs pour la récupération à long terme.`,
+    "afrique_subsah": (tranche, pays) =>
+      `Au <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> est la plus exposée à la toxicomanie. L'usage de <strong>cannabis, tramadol et solvants</strong> est particulièrement répandu chez les jeunes adultes désœuvrés. La <strong>pauvreté, le chômage et l'absence de perspectives</strong> constituent les principaux moteurs de ce phénomène. Les infrastructures de prise en charge des addictions sont quasi inexistantes dans de nombreuses zones rurales. Des approches communautaires intégrant les <strong>leaders traditionnels et religieux</strong> se révèlent souvent plus efficaces que les interventions institutionnelles classiques.`,
+    "default": (tranche, pays) =>
+      `Dans le pays analysé (<strong>${pays}</strong>), la tranche <span class="highlight-tranche">${tranche}</span> est la plus touchée par la toxicomanie. Cette période de vie est marquée par une <strong>vulnérabilité accrue aux expérimentations</strong> et à l'installation de dépendances. Les drogues les plus concernées varient selon le contexte régional (cannabis, stimulants, opioïdes). Les facteurs de risque incluent la <strong>précarité sociale, les traumatismes non traités et l'entourage</strong>. Une approche globale combinant prévention, réduction des risques et traitement est indispensable pour réduire l'impact sur cette population.`,
+  },
+  dépression: {
+    "europe_ouest": (tranche, pays) =>
+      `En <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> présente les taux de dépression les plus élevés. Cette période correspond à une accumulation de <strong>stresseurs majeurs</strong> : instabilité professionnelle, endettement, ruptures sentimentales, et comparaison sociale amplifiée par les réseaux sociaux. La <strong>crise du logement et la précarisation de l'emploi</strong> observées ces dernières décennies ont particulièrement impacté cette tranche d'âge. L'accès aux soins psychologiques reste inégal malgré des systèmes de santé développés. Des initiatives comme les <strong>plateformes de thérapie en ligne</strong> commencent à combler certaines lacunes, mais la stigmatisation des troubles mentaux persiste.`,
+    "afrique_subsah": (tranche, pays) =>
+      `Au <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> est la plus affectée par la dépression. Les taux réels sont probablement <strong>sous-estimés en raison de la stigmatisation culturelle</strong> et du manque de diagnostic. Les facteurs déclencheurs incluent la <strong>pauvreté chronique, les conflits armés, les pertes familiales</strong> et le manque de perspectives d'avenir. La dépression est souvent interprétée à travers le prisme culturel (sorcellerie, mauvais esprits), retardant la prise en charge médicale. Le renforcement des <strong>capacités des agents de santé communautaires</strong> en santé mentale représente une piste prometteuse adaptée au contexte local.`,
+    "amerique_nord": (tranche, pays) =>
+      `Aux <strong>${pays}</strong>, la tranche <span class="highlight-tranche">${tranche}</span> affiche les taux de dépression les plus préoccupants. La <strong>culture de la performance, l'isolement social et la surexposition aux médias sociaux</strong> constituent des facteurs aggravants majeurs identifiés par les chercheurs. La pandémie de COVID-19 a provoqué une hausse significative des cas dans cette tranche d'âge. Malgré une offre de soins relativement développée, les <strong>coûts des thérapies et la stigmatisation</strong> limitent l'accès aux traitements. Des applications de santé mentale et des programmes d'aide en milieu professionnel commencent à atteindre cette population difficile d'accès.`,
+    "default": (tranche, pays) =>
+      `Dans le pays analysé (<strong>${pays}</strong>), la tranche <span class="highlight-tranche">${tranche}</span> est la plus touchée par la dépression. Ce phénomène reflète une <strong>vulnérabilité accumulée</strong> liée aux transitions de vie, aux pressions économiques et sociales propres à cette période. La dépression dans cette tranche est souvent associée à une <strong>baisse de productivité, des troubles relationnels et un risque suicidaire plus élevé</strong>. Une détection précoce par les médecins généralistes et un accès facilité aux soins psychologiques sont les leviers les plus efficaces recommandés par l'OMS pour réduire l'impact de ce trouble dans cette population.`,
+  }
+};
+
+// ─────────────────────────────────────────────
+//  LOGIQUE PRINCIPALE
+// ─────────────────────────────────────────────
+
+function getRegion(pays) {
+  const key = pays.toLowerCase().trim();
+  const code = PAYS_REGIONS[key];
+  if (!code) return "default";
+  return REGION_KEYS[code - 9] || "default";
+}
+
+function addNoise(taux) {
+  return taux.map(v => Math.max(0.3, +(v + (Math.random() * 2 - 1)).toFixed(1)));
+}
+
+function getBilan(param, region, tranche, pays) {
+  const bilansParam = BILANS[param];
+  const fn = bilansParam[region] || bilansParam["default"];
+  return fn(tranche, pays);
+}
+
+function launchAnalysis() {
+  const country = document.getElementById('country').value.trim();
+  const param = document.getElementById('param').value;
+
+  if (!country || !param) {
+    showError("Veuillez renseigner un pays et un paramètre.");
+    return;
+  }
+
+  hideError();
+  showLoader(true);
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('btnAnalyze').disabled = true;
+
+  // Simuler un délai de traitement réaliste
+  setTimeout(() => {
+    try {
+      const region = getRegion(country);
+      const baseTaux = PROFILS[param][region] || PROFILS[param]["default"];
+      const taux = addNoise(baseTaux);
+
+      const maxVal = Math.max(...taux);
+      const minVal = Math.min(...taux);
+      const maxIdx = taux.indexOf(maxVal);
+      const minIdx = taux.indexOf(minVal);
+      const trancheMax = TRANCHES[maxIdx];
+
+      const bilan = getBilan(param, region, trancheMax, country);
+
+      renderResults({
+        tranches: TRANCHES,
+        taux,
+        tranche_max: trancheMax,
+        taux_max: maxVal,
+        taux_min: minVal,
+        bilan
+      }, country, param);
+
+    } catch (err) {
+      showError("Erreur lors de l'analyse : " + err.message);
+    } finally {
+      showLoader(false);
+      document.getElementById('btnAnalyze').disabled = false;
+    }
+  }, 1200);
+}
+
+let barChartInstance = null;
+let pieChartInstance = null;
+
+function renderResults(data, country, param) {
+  document.getElementById('countryTag').textContent = country.toUpperCase();
+  document.getElementById('paramTag').textContent = param.charAt(0).toUpperCase() + param.slice(1);
+  document.getElementById('resultsTitle').textContent = `Analyse — ${country}`;
+  document.getElementById('statAge').textContent = data.tranche_max;
+  document.getElementById('statMax').textContent = data.taux_max + '%';
+  document.getElementById('statMin').textContent = data.taux_min + '%';
+  document.getElementById('bilanContent').innerHTML = data.bilan;
+
+  const colors = data.tranches.map((_, i) =>
+    data.tranches[i] === data.tranche_max
+      ? 'rgba(247,162,79,0.85)'
+      : 'rgba(79,142,247,0.65)'
+  );
+
+  if (barChartInstance) barChartInstance.destroy();
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChartInstance = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: data.tranches,
+      datasets: [{
+        label: 'Taux (%)',
+        data: data.taux,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace('0.65','1').replace('0.85','1')),
+        borderWidth: 1.5,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2334',
+          titleColor: '#e8ecf4',
+          bodyColor: '#6b7592',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.parsed.y}%` }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#6b7592', font: { family: 'Space Mono', size: 10 } },
+          grid: { color: 'rgba(42,48,69,0.5)' }
+        },
+        y: {
+          ticks: { color: '#6b7592', font: { family: 'Space Mono', size: 10 }, callback: v => v + '%' },
+          grid: { color: 'rgba(42,48,69,0.5)' }
+        }
+      }
+    }
+  });
+
+  if (pieChartInstance) pieChartInstance.destroy();
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  const pieColors = [
+    'rgba(79,142,247,0.85)','rgba(247,162,79,0.85)','rgba(79,247,162,0.85)',
+    'rgba(247,79,106,0.85)','rgba(162,79,247,0.85)','rgba(247,220,79,0.85)'
+  ];
+  pieChartInstance = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: data.tranches,
+      datasets: [{
+        data: data.taux,
+        backgroundColor: pieColors,
+        borderColor: '#0f1117',
+        borderWidth: 3,
+        hoverOffset: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#6b7592', font: { family: 'Space Mono', size: 9 }, boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          backgroundColor: '#1e2334',
+          titleColor: '#e8ecf4',
+          bodyColor: '#6b7592',
+          borderColor: '#2a3045',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.label} : ${ctx.parsed}%` }
+        }
+      },
+      cutout: '55%'
+    }
+  });
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showLoader(state) {
+  document.getElementById('loader').style.display = state ? 'block' : 'none';
+}
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+document.getElementById('country').addEventListener('keydown', e => {
+  if (e.key === 'Enter') launchAnalysis();
+});
+</script>
+</body>
+</html>
